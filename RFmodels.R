@@ -28,9 +28,11 @@ chik_foi<- read.csv("chik_foi.csv")
 
 #1. load covariates data -------------------------------------------------------
 load("Raster/covariates.RData")
-load("arbo_dat_chik.RData")
+
 #2. RF model (basic: train 100%) -----------------------------------------------
-rf.mod <- randomForest(FOI ~ Temp + PRCP + Pop_dens + GDP + Albo + Aegyp + NDVI,
+p_covs$FOI <- as.numeric(as.character(p_covs$FOI))
+sapply(p_covs, class)
+rf.mod <- randomForest(FOI ~ Temp + PRCP + Pop_dens + GDP + Albo + Aegyp + NDVI +Elev,
                        data = p_covs,
                        importance = TRUE)
 
@@ -40,9 +42,14 @@ pred.data <- data.frame(Temp        = as.vector(temp),
                         GDP         = as.vector(gdp_nat),
                         Albo        = as.vector(albo),
                         Aegyp       = as.vector(aegyp),
-                        NDVI        = as.vector(ndvi))
+                        NDVI        = as.vector(ndvi),
+                        Elev        = as.vector(elev))
 
 rf.preds <- predict(rf.mod, pred.data, type = "response")
+
+# transform all negative values to zero
+rf.preds <- pmax(predict(rf.mod, pred.data, type = "response"), 0)
+
 
 #3. GAM model ------------------------------------------------------------------
 gam.mod <- gam(FOI ~ s(Temp) + s(PRCP) + s(Elev) + s(Pop_dens) + s(GDP) + s(Albo) + s(Aegyp) + s(NDVI),
@@ -163,6 +170,11 @@ r_CHIK <- plotRaster(CHIK_range_mask)+scale_fill_viridis(option = "rocket", dire
 ggsave(filename = paste0("Map_figs/CHIK_rangemap",
                          gsub("-", "_", Sys.Date()),
                          ".jpg"), r_CHIK, height=6, width=12, dpi=900)
+
+#check
+raster_spdf <- as(chikmap.rf, "SpatialPixelsDataFrame")
+raster_df <- as.data.frame(raster_spdf)
+
 
 #6. cross validation------------------------------------------------------------
 #https://github.com/HannaMeyer/CAST?tab=readme-ov-file

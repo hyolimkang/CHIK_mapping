@@ -16,8 +16,10 @@ library(ecospat)
 library(fields)
 library(ncdf4)
 
-setwd("D:/OneDrive - London School of Hygiene and Tropical Medicine/chik_mapping/Raster") # window
-source("fixNAs_adj.R")
+setwd("D:/OneDrive - London School of Hygiene and Tropical Medicine/chik_mapping") # window
+load("Raster/arbo_dat_chik.RData")
+source("Raster/fixNAs_adj.R")
+source("Raster/thinning_chik.R")
 source("D:/OneDrive - London School of Hygiene and Tropical Medicine/chik_mapping/plotRaster.R")
 options(scipen = 999)
 chik_foi<- read.csv("chik_foi.csv")
@@ -138,12 +140,31 @@ names(covlist) <- c("Temp", "PRCP", "Pop_dens", "GDP", "Albo", "Aegyp", "NDVI", 
 
 #11. pcov data -----------------------------------------------------------------
 # extract covariate values
-p_covs <- extract(covlist, data.frame(chik_foi$long, chik_foi$lat), df= T, na.rm=TRUE)
-p_covs$FOI <- chik_foi$mfoi
-p_covs$Longitude <- chik_foi$long
-p_covs$Latitude <- chik_foi$lat
-point_idx <- which(apply(p_covs[, names(covlist)], 1, function(row) any(is.na(row))))
+# create only occurrence + foi
+chik_foi <- chik_foi[,c(5:7)]
+new_order <- c("long", "lat", "mfoi")
+chik_foi <- chik_foi[,new_order]
+chik_occ <- arbo_occ[arbo_occ$disease == "chikungunya", ]
+chik_occ <- chik_occ[,c(1:2)]
+names(chik_occ) <- c("long", "lat")
+chik_occ <- rbind(chik_foi_merge, chik_occ)
+
+chik_bg <- thin_bg_chik(chik_occ)
+chik_bg <- chik_bg[,c(1:2)]
+names(chik_bg) <- c("long", "lat")
+chik_bg$mfoi <- 0
+
+chik_foi_all <- rbind(chik_foi, chik_bg)
+
+p_covs <- extract(covlist, data.frame(chik_foi_all$long, chik_foi_all$lat), df= T, na.rm=TRUE)
+p_covs$FOI <- chik_foi_all$mfoi
+p_covs$Longitude <- chik_foi_all$long
+p_covs$Latitude <- chik_foi_all$lat
 p_covs <- fixNAs(p_covs, covlist)
+point_idx <- which(apply(p_covs[, names(covlist)], 1, function(row) any(is.na(row))))
+
+p_covs <- p_covs[-point_idx,]
+
 
 #11. save data------------------------------------------------------------------
 save("temp", "precip", "elev", "pop_dens", "gdp_nat", "albo", "aegyp", "ndvi", "covlist", "p_covs", file = "covariates.RData")
