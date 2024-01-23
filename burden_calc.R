@@ -179,7 +179,7 @@ age_strat_burden <- function(age_vec_df, df, n_age_groups, l_lim, u_lim) {
 
 
 # function with returning both age-stratified burden and original df
-# matching two dfs by country code
+# matching two dfs by country code in a wide format dataframe 
 age_strat_burden <- function(age_vec_df, df, n_age_groups, l_lim, u_lim) {
   
   infections_per_age_band <- matrix(nrow = nrow(df), ncol = n_age_groups)
@@ -190,10 +190,10 @@ age_strat_burden <- function(age_vec_df, df, n_age_groups, l_lim, u_lim) {
     
     #1. match the country 
     
-    country_rows <- which(age_vec_df$country == df$country[i])
+    country_row <- match(df$country[i], age_vec_df$country)
     
-  if(length(country_rows) == n_age_groups) {
-    age_vec_current <- age_vec_df[start_idx:end_idx, 'prop']
+  if(!is.na(country_rows)) {
+    age_vec_current <- age_vec_df[country_row, 4:23]
     
     #2. breakdown total population in each row 
     
@@ -211,12 +211,12 @@ age_strat_burden <- function(age_vec_df, df, n_age_groups, l_lim, u_lim) {
     
     infections_per_age_band[i, ] <- infection
     
-    #5. total sum of infections per row 
+    #6. total sum of infections per row 
     
     total_infection[i] <- sum(infection)  # sums up the infections for all age bands for the ith row
     
   } else {
-    warning(paste("Mismatched age group counts for country"), df$country[i])
+    warning(paste("No matching country found in age_vec_df for"), df$country[i])
   }
 }
   
