@@ -52,3 +52,185 @@ calc_infections <- function(FOI,
   
   sum(tot_infection)
 }
+
+
+n_age_groups <- 4
+age_vec <- c(0.1, 0.3, 0.2, 0.5)
+l_lim <- seq(0, 95, length.out = n_age_groups)
+u_lim <- seq(5, 100, length.out = n_age_groups)
+tot_infections <- numeric(nrow(df))
+
+## age_vec_df <- 20 * nrow(raster_df) (age distribution pyramid  for each cell in the FOI raster)
+
+# for loop only
+for(i in 1:nrow(df)){
+  
+  #1. fetch the age proportion 
+  start_idx <- (i - 1) * n_age_groups + 1
+  
+  end_idx   <- i * n_age_groups
+  
+  age_vec_current <- age_vec_df[start_idx:end_idx, 'prop']
+  
+  #2. breakdown total population in each row 
+  
+  age_str_pop <- df$pop[i] * age_vec_current
+  
+  #3. incidence in each specific age band 
+  
+  incidence_rates <- mapply(calc_incidence, FOI = rep(df$FOI[i], n_age_groups), l_lim, u_lim)   # calculate incidence rates for each age band
+  
+  #4. infections per age band
+  
+  infection <- mapply(incidence_to_numbs, incidence = incidence_rates, n_j = age_str_pop)  # calculates the number of infections for each age band by multiplying the incidence rates by the corresponding populations in age_str_pop
+  
+  #5. total sum of infections per row 
+  
+  total_infection[i] <- sum(infection)  # sums up the infections for all age bands for the ith row
+}
+
+#6. add the total infections per age band for ith row
+
+df$total_infection <- total_infection
+
+
+
+# function with returning only original df
+age_strat_burden <- function(age_vec_df, df, n_age_groups, l_lim, u_lim) {
+
+  for(i in 1:nrow(df)){
+    
+    #1. fetch the age proportion 
+    start_idx <- (i - 1) * n_age_groups + 1
+    
+    end_idx   <- i * n_age_groups
+    
+    age_vec_current <- age_vec_df[start_idx:end_idx, 'prop']
+    
+    #2. breakdown total population in each row 
+    
+    age_str_pop <- df$pop[i] * age_vec_current
+    
+    #3. incidence in each specific age band 
+    
+    incidence_rates <- mapply(calc_incidence, FOI = rep(df$FOI[i], n_age_groups), l_lim, u_lim)   # calculate incidence rates for each age band
+    
+    #4. infections per age band
+    
+    infection <- mapply(incidence_to_numbs, incidence = incidence_rates, n_j = age_str_pop)  # calculates the number of infections for each age band by multiplying the incidence rates by the corresponding populations in age_str_pop
+    
+    #5. total sum of infections per row 
+    
+    total_infection[i] <- sum(infection)  # sums up the infections for all age bands for the ith row
+  }
+  
+   # Add it to the original dataframe
+  
+    df$total_infection <- total_infection
+    return(df)
+}
+
+# function with returning both age-stratified burden and original df 
+age_strat_burden <- function(age_vec_df, df, n_age_groups, l_lim, u_lim) {
+  
+  infections_per_age_band <- matrix(nrow = nrow(df), ncol = n_age_groups)
+  
+  total_infection <- numeric(nrow(df))
+  
+  for(i in 1:nrow(df)){
+    
+    #1. fetch the age proportion 
+    start_idx <- (i - 1) * n_age_groups + 1
+    
+    end_idx   <- i * n_age_groups
+    
+    age_vec_current <- age_vec_df[start_idx:end_idx, 'prop']
+    
+    #2. breakdown total population in each row 
+    
+    age_str_pop <- df$pop[i] * age_vec_current
+    
+    #3. incidence in each specific age band 
+    
+    incidence_rates <- mapply(calc_incidence, FOI = rep(df$FOI[i], n_age_groups), l_lim, u_lim)   # calculate incidence rates for each age band
+    
+    #4. infections per age band
+    
+    infection <- mapply(incidence_to_numbs, incidence = incidence_rates, n_j = age_str_pop)  # calculates the number of infections for each age band by multiplying the incidence rates by the corresponding populations in age_str_pop
+    
+    #5. store the infections per age band in the matrix 
+    
+    infections_per_age_band[i, ] <- infection
+    
+    #5. total sum of infections per row 
+    
+    total_infection[i] <- sum(infection)  # sums up the infections for all age bands for the ith row
+  }
+  
+  # Add it to the original dataframe
+  
+  df$total_infection <- total_infection
+  
+  return(list(
+    updated_df         = df,
+    infection_per_band = infections_per_age_band
+  ))
+}
+
+
+# function with returning both age-stratified burden and original df
+# matching two dfs by country code
+age_strat_burden <- function(age_vec_df, df, n_age_groups, l_lim, u_lim) {
+  
+  infections_per_age_band <- matrix(nrow = nrow(df), ncol = n_age_groups)
+  
+  total_infection <- numeric(nrow(df))
+  
+  for(i in 1:nrow(df)){
+    
+    #1. match the country 
+    
+    country_rows <- which(age_vec_df$country == df$country[i])
+    
+  if(length(country_rows) == n_age_groups) {
+    age_vec_current <- age_vec_df[start_idx:end_idx, 'prop']
+    
+    #2. breakdown total population in each row 
+    
+    age_str_pop <- df$pop[i] * age_vec_current
+    
+    #3. incidence in each specific age band 
+    
+    incidence_rates <- mapply(calc_incidence, FOI = rep(df$FOI[i], n_age_groups), l_lim, u_lim)   # calculate incidence rates for each age band
+    
+    #4. infections per age band
+    
+    infection <- mapply(incidence_to_numbs, incidence = incidence_rates, n_j = age_str_pop)  # calculates the number of infections for each age band by multiplying the incidence rates by the corresponding populations in age_str_pop
+    
+    #5. store the infections per age band in the matrix 
+    
+    infections_per_age_band[i, ] <- infection
+    
+    #5. total sum of infections per row 
+    
+    total_infection[i] <- sum(infection)  # sums up the infections for all age bands for the ith row
+    
+  } else {
+    warning(paste("Mismatched age group counts for country"), df$country[i])
+  }
+}
+  
+  # Add it to the original dataframe
+  
+  df$total_infection <- total_infection
+  
+  return(list(
+    updated_df         = df,
+    infection_per_band = infections_per_age_band
+  ))
+}
+
+
+
+
+
